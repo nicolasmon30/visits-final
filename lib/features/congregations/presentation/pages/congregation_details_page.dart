@@ -113,16 +113,14 @@ class _CongregationDetailsPageState
 
   @override
   void deactivate() {
-    // Limpiar el estado cuando el widget se desactiva
-    try {
-      ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+    // Solo limpiar si realmente estamos saliendo de la página
+    if (!mounted) {
       try {
+        ref.read(congregationDetailsNotifierProvider.notifier).clearState();
         ref.read(recommendationsNotifierProvider.notifier).clearState();
       } catch (e) {
-        print('Error clearing recommendations state: $e');
+        // Silently handle if ref is already disposed
       }
-    } catch (e) {
-      // Silently handle if ref is already disposed
     }
     super.deactivate();
   }
@@ -649,8 +647,11 @@ class _CongregationDetailsPageState
 
   void _populateControllers(CongregationDetailsEntity details) {
     // Solo poblar si los controllers están vacíos (primera carga)
+    if (details.congregationId != widget.congregation.id) {
+      return; // No poblar si es de otra congregación
+    }
     // Y si es para la congregación correcta
-    if (!_isDataLoaded && details.congregationId == widget.congregation.id) {
+    if (!_isDataLoaded) {
       _populateSectionControllers(
           'reunionEntreSemana', details.reunionEntreSemana);
       _populateSectionControllers(

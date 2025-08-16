@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/congregations/presentation/pages/congregations_page.dart';
+import '../../features/congregations/presentation/pages/congregation_details_page.dart';
+import '../../features/congregations/domain/entities/congregation_entity.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/onboarding/presentation/pages/setup_page.dart';
 import '../../features/routes/presentation/pages/routes_page.dart';
@@ -39,10 +41,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RoutesPage(),
       ),
       GoRoute(
-        path: RouteNames.congregations,
-        name: 'congregations',
-        builder: (context, state) => const CongregationsPage(),
-      ),
+          path: RouteNames.congregations,
+          name: 'congregations',
+          builder: (context, state) => const CongregationsPage(),
+          routes: [
+            GoRoute(
+              path: 'details/:id',
+              name: 'congregation_details',
+              builder: (context, state) {
+                final extra = state.extra as Map<String, dynamic>?;
+                final congregation =
+                    extra?['congregation'] as CongregationEntity;
+
+                return CongregationDetailsPage(
+                  congregation: congregation,
+                );
+              },
+            )
+          ]),
     ],
   );
 });

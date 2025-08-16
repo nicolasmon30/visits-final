@@ -209,13 +209,20 @@ class _CongregationsPageState extends ConsumerState<CongregationsPage> {
   }
 
   void _navigateToDetails(CongregationEntity congregation) {
-    ref.read(congregationDetailsNotifierProvider.notifier).clearState();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => CongregationDetailsPage(
-          congregation: congregation,
-        ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
       ),
+    );
+    ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+    Navigator.of(context).pop();
+    context.go(
+      '/congregations/details/${congregation.id}',
+      extra: {
+        'congregation': congregation,
+      },
     );
   }
 

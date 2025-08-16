@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/congregation_entity.dart';
@@ -131,7 +132,12 @@ class CongregationCard extends ConsumerWidget {
                       ref
                           .read(congregationDetailsNotifierProvider.notifier)
                           .clearState();
-                      onViewDetails?.call();
+                      context.go(
+                        '/congregations/details/${congregation.id}',
+                        extra: {
+                          'congregation': congregation,
+                        },
+                      );
                       break;
                     case 'edit':
                       onEdit();
