@@ -197,6 +197,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                         _navigateToCongregations(context);
                       },
                     ).animate().fadeIn(delay: 400.ms, duration: 600.ms).scale(),
+                    _buildMainSectionCard(
+                      context,
+                      icon: Icons.event_rounded,
+                      title: 'Asambleas',
+                      subtitle: '',
+                      color: AppColors.darkBlue,
+                      onTap: () {
+                        _navigateToAssamblies(context);
+                      },
+                    ).animate().fadeIn(delay: 400.ms, duration: 600.ms).scale(),
                   ],
                 ),
 
@@ -404,6 +414,11 @@ class _HomePageState extends ConsumerState<HomePage> {
   // Navegación a congregaciones
   void _navigateToCongregations(BuildContext context) {
     context.go(RouteNames.congregations);
+  }
+
+  // Navegación a Asambleas
+  void _navigateToAssamblies(BuildContext context) {
+    context.go(RouteNames.assemblies);
   }
 
   Widget _buildFeatureItem(String emoji, String text) {

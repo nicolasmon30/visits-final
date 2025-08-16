@@ -22,6 +22,10 @@ import '../../features/recommendations/data/datasources/recommendations_local_da
 import '../../features/recommendations/data/repositories/recommendations_repository_impl.dart';
 import '../../features/recommendations/domain/repositories/recommendations_repository.dart';
 import '../../features/recommendations/domain/usecases/recommendations_usecases.dart';
+import '../../features/assemblies/data/datasources/assemblies_local_datasource.dart';
+import '../../features/assemblies/data/repositories/assemblies_repository_impl.dart';
+import '../../features/assemblies/domain/repositories/assemblies_repository.dart';
+import '../../features/assemblies/domain/usecases/assemblies_usecases.dart';
 
 final sl = GetIt.instance;
 
@@ -50,6 +54,11 @@ Future<void> initializeDependencies() async {
     () => RecommendationsLocalDataSourceImpl(sl()),
   );
 
+  // Assemblies Data sources
+  sl.registerLazySingleton<AssembliesLocalDataSource>(
+    () => AssembliesLocalDataSourceImpl(sl()),
+  );
+
   // Auth Repositories
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(sl()),
@@ -68,6 +77,11 @@ Future<void> initializeDependencies() async {
   // Recommendations Repositories
   sl.registerLazySingleton<RecommendationsRepository>(
     () => RecommendationsRepositoryImpl(sl()),
+  );
+
+  // Assemblies Repositories
+  sl.registerLazySingleton<AssembliesRepository>(
+    () => AssembliesRepositoryImpl(sl()),
   );
 
   // Auth Use cases
@@ -103,4 +117,12 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => UpdateRecommendation(sl()));
   sl.registerLazySingleton(() => DeleteRecommendation(sl()));
   sl.registerLazySingleton(() => GetRecommendationsCount(sl()));
+
+  // Assemblies Use cases
+  sl.registerLazySingleton(() => GetAllAssemblies(sl()));
+  sl.registerLazySingleton(() => GetAssemblyById(sl()));
+  sl.registerLazySingleton(() => CreateAssembly(sl()));
+  sl.registerLazySingleton(() => UpdateAssembly(sl()));
+  sl.registerLazySingleton(() => DeleteAssembly(sl()));
+  sl.registerLazySingleton(() => GetAssembliesCount(sl()));
 }
