@@ -18,6 +18,10 @@ import '../../features/congregations/data/datasources/congregations_local_dataso
 import '../../features/congregations/data/repositories/congregations_repository_impl.dart';
 import '../../features/congregations/domain/repositories/congregations_repository.dart';
 import '../../features/congregations/domain/usecases/congregations_usecases.dart';
+import '../../features/recommendations/data/datasources/recommendations_local_datasource.dart';
+import '../../features/recommendations/data/repositories/recommendations_repository_impl.dart';
+import '../../features/recommendations/domain/repositories/recommendations_repository.dart';
+import '../../features/recommendations/domain/usecases/recommendations_usecases.dart';
 
 final sl = GetIt.instance;
 
@@ -41,6 +45,11 @@ Future<void> initializeDependencies() async {
     () => CongregationsLocalDataSourceImpl(sl()),
   );
 
+  // Recommendations Data sources
+  sl.registerLazySingleton<RecommendationsLocalDataSource>(
+    () => RecommendationsLocalDataSourceImpl(sl()),
+  );
+
   // Auth Repositories
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(sl()),
@@ -54,6 +63,11 @@ Future<void> initializeDependencies() async {
   // Congregations Repositories
   sl.registerLazySingleton<CongregationsRepository>(
     () => CongregationsRepositoryImpl(sl()),
+  );
+
+  // Recommendations Repositories
+  sl.registerLazySingleton<RecommendationsRepository>(
+    () => RecommendationsRepositoryImpl(sl()),
   );
 
   // Auth Use cases
@@ -81,4 +95,12 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => GetCongregationsCount(sl()));
   sl.registerLazySingleton(() => GetCongregationDetails(sl()));
   sl.registerLazySingleton(() => SaveCongregationDetails(sl()));
+
+  // Recommendations Use cases
+  sl.registerLazySingleton(() => GetRecommendationsByCongregation(sl()));
+  sl.registerLazySingleton(() => GetRecommendationById(sl()));
+  sl.registerLazySingleton(() => CreateRecommendation(sl()));
+  sl.registerLazySingleton(() => UpdateRecommendation(sl()));
+  sl.registerLazySingleton(() => DeleteRecommendation(sl()));
+  sl.registerLazySingleton(() => GetRecommendationsCount(sl()));
 }

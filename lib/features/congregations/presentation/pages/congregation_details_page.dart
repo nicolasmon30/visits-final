@@ -9,6 +9,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/congregation_entity.dart';
 import '../../domain/entities/congregation_details_entity.dart';
 import '../providers/congregation_details_notifier.dart';
+import '../../../recommendations/domain/entities/recommendation_entity.dart';
+import '../../../recommendations/presentation/providers/recommendations_notifier.dart';
+import '../../../recommendations/presentation/widgets/create_recommendation_dialog.dart';
+import '../../../recommendations/presentation/widgets/edit_recommendation_dialog.dart';
+import '../../../recommendations/presentation/widgets/recommendation_card.dart';
 
 class CongregationDetailsPage extends ConsumerStatefulWidget {
   final CongregationEntity congregation;
@@ -89,12 +94,37 @@ class _CongregationDetailsPageState
   }
 
   void _loadData() {
-    // Cargar los datos guardados de la congregación
+    // Limpiar el estado anterior y cargar los datos de esta congregación
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Primero limpiar el estado
+      ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+      ref.read(recommendationsNotifierProvider.notifier).clearState();
+
+      // Luego cargar los datos específicos de esta congregación
       ref
           .read(congregationDetailsNotifierProvider.notifier)
           .loadDetails(widget.congregation.id);
+
+      ref
+          .read(recommendationsNotifierProvider.notifier)
+          .loadRecommendations(widget.congregation.id);
     });
+  }
+
+  @override
+  void deactivate() {
+    // Limpiar el estado cuando el widget se desactiva
+    try {
+      ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+      try {
+        ref.read(recommendationsNotifierProvider.notifier).clearState();
+      } catch (e) {
+        print('Error clearing recommendations state: $e');
+      }
+    } catch (e) {
+      // Silently handle if ref is already disposed
+    }
+    super.deactivate();
   }
 
   @override
@@ -108,6 +138,7 @@ class _CongregationDetailsPageState
         controller.dispose();
       }
     }
+
     super.dispose();
   }
 
@@ -136,9 +167,11 @@ class _CongregationDetailsPageState
     });
 
     // Cargar datos en los controllers cuando se obtengan los detalles
+    // SOLO si es para la congregación correcta
     if (detailsState.details != null &&
         !detailsState.isLoading &&
-        !_isDataLoaded) {
+        !_isDataLoaded &&
+        detailsState.currentCongregationId == widget.congregation.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _populateControllers(detailsState.details!);
       });
@@ -163,7 +196,18 @@ class _CongregationDetailsPageState
         actions: [
           IconButton(
             icon: const Icon(Icons.home_rounded),
-            onPressed: () => context.go(RouteNames.home),
+            onPressed: () {
+              // Limpiar el estado antes de ir al home
+              try {
+                ref
+                    .read(congregationDetailsNotifierProvider.notifier)
+                    .clearState();
+                ref.read(recommendationsNotifierProvider.notifier).clearState();
+              } catch (e) {
+                // Silently handle if ref is already disposed
+              }
+              context.go(RouteNames.home);
+            },
             tooltip: 'Ir al inicio',
           ),
         ],
@@ -324,6 +368,10 @@ class _CongregationDetailsPageState
                       const SizedBox(height: 32),
                       _buildTextAreaSection(),
 
+                      //Recomendaciones Section
+                      const SizedBox(height: 32),
+                      _buildRecommendationsSection(),
+
                       const SizedBox(height: 100), // Espacio para el FAB
                     ],
                   ),
@@ -352,9 +400,257 @@ class _CongregationDetailsPageState
     );
   }
 
+  Widget _buildRecommendationsSection() {
+    try {
+      final recommendationsState = ref.watch(recommendationsNotifierProvider);
+      final theme = Theme.of(context);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                  child: Text(
+                'Recomendaciones',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkBlue,
+                ),
+              )),
+              ElevatedButton.icon(
+                onPressed: () => _showCreateRecommendationDialog(),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Agregar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.lightBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              )
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (recommendationsState.isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (recommendationsState.recommendations.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: AppColors.paleBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.lightBlue.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.person_add_rounded,
+                    size: 48,
+                    color: AppColors.lightBlue.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay recomendaciones registradas',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppColors.darkBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Agrega la primera recomendación para esta congregación',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.lightBlue,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => _showCreateRecommendationDialog(),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Crear Primera Recomendación'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.lightBlue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: recommendationsState.recommendations.length,
+              itemBuilder: (context, index) {
+                final recommendation =
+                    recommendationsState.recommendations[index];
+                return RecommendationCard(
+                  recommendation: recommendation,
+                  onEdit: () => _showEditRecommendationDialog(recommendation),
+                  onDelete: () =>
+                      _showDeleteRecommendationDialog(recommendation),
+                )
+                    .animate()
+                    .fadeIn(
+                      delay: Duration(milliseconds: 100 * index),
+                      duration: 400.ms,
+                    )
+                    .slideX();
+              },
+            ),
+          Consumer(builder: (context, ref, child) {
+            ref.listen<RecommendationsState>(recommendationsNotifierProvider,
+                (previous, next) {
+              if (next.error != null) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(next.error!),
+                  backgroundColor: theme.colorScheme.error,
+                  behavior: SnackBarBehavior.floating,
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ));
+                ref.read(recommendationsNotifierProvider.notifier).clearError();
+              }
+            });
+            return const SizedBox.shrink();
+          })
+        ],
+      ).animate().fadeIn(delay: Duration(milliseconds: 600), duration: 600.ms);
+    } catch (e) {
+      print('Error in recommendations section: $e');
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.grey.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.warning_rounded,
+              size: 48,
+              color: Colors.orange.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Recomendaciones no disponibles',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.orange,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Hay un problema con el sistema de recomendaciones',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _showCreateRecommendationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateRecommendationDialog(
+        congregationId: widget.congregation.id,
+        onRecommendationCreated: () {
+          ref
+              .read(recommendationsNotifierProvider.notifier)
+              .loadRecommendations(widget.congregation.id);
+        },
+      ),
+    );
+  }
+
+  void _showEditRecommendationDialog(RecommendationEntity recommendation) {
+    showDialog(
+      context: context,
+      builder: (context) => EditRecommendationDialog(
+        recommendation: recommendation,
+        onRecommendationUpdated: () {
+          ref
+              .read(recommendationsNotifierProvider.notifier)
+              .loadRecommendations(widget.congregation.id);
+        },
+      ),
+    );
+  }
+
+  void _showDeleteRecommendationDialog(RecommendationEntity recommendation) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Recomendación'),
+        content: Text(
+            '¿Estás seguro de que quieres eliminar la recomendación de "${recommendation.titulo}"?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              final success = await ref
+                  .read(recommendationsNotifierProvider.notifier)
+                  .deleteRecommendation(
+                      recommendation.id, widget.congregation.id);
+
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Recomendación eliminada exitosamente'),
+                    backgroundColor: Colors.green,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _populateControllers(CongregationDetailsEntity details) {
     // Solo poblar si los controllers están vacíos (primera carga)
-    if (!_isDataLoaded) {
+    // Y si es para la congregación correcta
+    if (!_isDataLoaded && details.congregationId == widget.congregation.id) {
       _populateSectionControllers(
           'reunionEntreSemana', details.reunionEntreSemana);
       _populateSectionControllers(
@@ -764,6 +1060,21 @@ class _CongregationDetailsPageState
     final currentDetailsState = ref.read(congregationDetailsNotifierProvider);
     if (currentDetailsState.isSaving) return;
 
+    // Verificar que estamos guardando para la congregación correcta
+    if (currentDetailsState.currentCongregationId != widget.congregation.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Error: datos de congregación incorrectos'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
     try {
       // Crear la entidad de detalles con los datos actuales
       final details = CongregationDetailsEntity(
@@ -875,6 +1186,18 @@ class _CongregationDetailsPageState
   }
 
   void _goBack() {
+    // Limpiar el estado antes de salir
+    try {
+      ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+      try {
+        ref.read(recommendationsNotifierProvider.notifier).clearState();
+      } catch (e) {
+        print('Error clearing recommendations state in goBack: $e');
+      }
+    } catch (e) {
+      // Silently handle if ref is already disposed
+    }
+
     if (context.canPop()) {
       context.pop();
     } else {

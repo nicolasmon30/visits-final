@@ -11,6 +11,7 @@ import '../widgets/create_congregation_dialog.dart';
 import '../widgets/edit_congregation_dialog.dart';
 import '../widgets/congregation_card.dart';
 import '../pages/congregation_details_page.dart';
+import '../providers/congregation_details_notifier.dart';
 
 class CongregationsPage extends ConsumerStatefulWidget {
   const CongregationsPage({super.key});
@@ -208,6 +209,7 @@ class _CongregationsPageState extends ConsumerState<CongregationsPage> {
   }
 
   void _navigateToDetails(CongregationEntity congregation) {
+    ref.read(congregationDetailsNotifierProvider.notifier).clearState();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CongregationDetailsPage(

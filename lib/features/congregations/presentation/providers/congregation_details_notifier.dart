@@ -9,12 +9,15 @@ class CongregationDetailsState {
   final bool isSaving;
   final CongregationDetailsEntity? details;
   final String? error;
+  final String?
+      currentCongregationId; // Añadir para trackear la congregación actual
 
   const CongregationDetailsState({
     this.isLoading = false,
     this.isSaving = false,
     this.details,
     this.error,
+    this.currentCongregationId,
   });
 
   CongregationDetailsState copyWith({
@@ -22,12 +25,15 @@ class CongregationDetailsState {
     bool? isSaving,
     CongregationDetailsEntity? details,
     String? error,
+    String? currentCongregationId,
   }) {
     return CongregationDetailsState(
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       details: details ?? this.details,
       error: error,
+      currentCongregationId:
+          currentCongregationId ?? this.currentCongregationId,
     );
   }
 }
@@ -43,23 +49,42 @@ class CongregationDetailsNotifier
   ) : super(const CongregationDetailsState());
 
   Future<void> loadDetails(String congregationId) async {
-    state = state.copyWith(isLoading: true, error: null);
+    // Si estamos cargando una congregación diferente, resetear el estado primero
+    if (state.currentCongregationId != congregationId) {
+      state = const CongregationDetailsState();
+    }
+
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      currentCongregationId: congregationId,
+    );
 
     try {
       final details = await _getCongregationDetails(congregationId);
       state = state.copyWith(
         isLoading: false,
         details: details ?? CongregationDetailsEntity.empty(congregationId),
+        currentCongregationId: congregationId,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: 'Error cargando detalles de la congregación',
+        currentCongregationId: congregationId,
       );
     }
   }
 
   Future<bool> saveDetails(CongregationDetailsEntity details) async {
+    // Verificar que estamos guardando para la congregación correcta
+    if (state.currentCongregationId != details.congregationId) {
+      state = state.copyWith(
+        error: 'Error: congregación no coincide',
+      );
+      return false;
+    }
+
     state = state.copyWith(isSaving: true, error: null);
 
     try {
@@ -89,6 +114,11 @@ class CongregationDetailsNotifier
 
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  // Nuevo método para limpiar el estado completamente
+  void clearState() {
+    state = const CongregationDetailsState();
   }
 }
 

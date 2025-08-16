@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/congregation_entity.dart';
+import '../providers/congregation_details_notifier.dart';
 
-class CongregationCard extends StatelessWidget {
+class CongregationCard extends ConsumerWidget {
   final CongregationEntity congregation;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -18,7 +20,7 @@ class CongregationCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     return Card(
@@ -125,6 +127,10 @@ class CongregationCard extends StatelessWidget {
                 onSelected: (value) {
                   switch (value) {
                     case 'details':
+                      // Limpiar el estado antes de navegar
+                      ref
+                          .read(congregationDetailsNotifierProvider.notifier)
+                          .clearState();
                       onViewDetails?.call();
                       break;
                     case 'edit':
