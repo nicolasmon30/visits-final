@@ -1,0 +1,43 @@
+name: visits
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+   # State Management
+  flutter_riverpod: ^2.4.9
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.0
+  
+  # Dependency Injection
+  get_it: ^7.6.4
+  
+  # Navigation
+  go_router: ^12.1.1
+  
+  # UI
+  flutter_animate: ^4.2.0+1
+  
+  # Utils
+  equatable: ^2.0.5
+  
+  # Fonts
+  google_fonts: ^6.1.0
+  
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
