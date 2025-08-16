@@ -209,15 +209,7 @@ class _CongregationsPageState extends ConsumerState<CongregationsPage> {
   }
 
   void _navigateToDetails(CongregationEntity congregation) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-    ref.read(congregationDetailsNotifierProvider.notifier).clearState();
-    Navigator.of(context).pop();
+    print('Hereeeee');
     context.go(
       '/congregations/details/${congregation.id}',
       extra: {

@@ -31,7 +31,13 @@ class CongregationCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: InkWell(
-        onTap: () => _showCongregationDetails(context),
+        onTap: () {
+          if (onViewDetails != null) {
+            onViewDetails!();
+          } else {
+            _showCongregationDetails(context, ref);
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(20),
@@ -128,10 +134,6 @@ class CongregationCard extends ConsumerWidget {
                 onSelected: (value) {
                   switch (value) {
                     case 'details':
-                      // Limpiar el estado antes de navegar
-                      ref
-                          .read(congregationDetailsNotifierProvider.notifier)
-                          .clearState();
                       context.go(
                         '/congregations/details/${congregation.id}',
                         extra: {
@@ -198,7 +200,7 @@ class CongregationCard extends ConsumerWidget {
     );
   }
 
-  void _showCongregationDetails(BuildContext context) {
+  void _showCongregationDetails(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -294,7 +296,15 @@ class CongregationCard extends ConsumerWidget {
           ElevatedButton.icon(
             onPressed: () {
               Navigator.of(context).pop();
-              onEdit();
+              ref
+                  .read(congregationDetailsNotifierProvider.notifier)
+                  .clearState();
+              context.go(
+                '/congregations/details/${congregation.id}',
+                extra: {
+                  'congregation': congregation,
+                },
+              );
             },
             icon: const Icon(Icons.edit_rounded, size: 18),
             label: const Text('Editar'),

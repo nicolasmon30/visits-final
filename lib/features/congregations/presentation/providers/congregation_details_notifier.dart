@@ -52,6 +52,12 @@ class CongregationDetailsNotifier
     // Si estamos cargando una congregación diferente, resetear el estado primero
     if (state.currentCongregationId != congregationId) {
       state = const CongregationDetailsState();
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (state.isLoading && state.currentCongregationId == congregationId) {
+      print('Already loading details for this congregation');
+      return;
     }
 
     state = state.copyWith(
@@ -61,18 +67,26 @@ class CongregationDetailsNotifier
     );
 
     try {
+      print('Fetching congregation details from repository...');
       final details = await _getCongregationDetails(congregationId);
-      state = state.copyWith(
-        isLoading: false,
-        details: details ?? CongregationDetailsEntity.empty(congregationId),
-        currentCongregationId: congregationId,
-      );
+
+      print('Details loaded: ${details != null ? 'found' : 'creating empty'}');
+
+      if (state.currentCongregationId == congregationId) {
+        state = state.copyWith(
+          isLoading: false,
+          details: details ?? CongregationDetailsEntity.empty(congregationId),
+          currentCongregationId: congregationId,
+        );
+      }
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Error cargando detalles de la congregación',
-        currentCongregationId: congregationId,
-      );
+      if (state.currentCongregationId == congregationId) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Error cargando detalles de la congregación',
+          currentCongregationId: congregationId,
+        );
+      }
     }
   }
 
@@ -82,6 +96,11 @@ class CongregationDetailsNotifier
       state = state.copyWith(
         error: 'Error: congregación no coincide',
       );
+      return false;
+    }
+
+    if (state.isSaving) {
+      print('Already saving details');
       return false;
     }
 

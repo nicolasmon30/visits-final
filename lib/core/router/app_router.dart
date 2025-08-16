@@ -50,9 +50,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               name: 'congregation_details',
               builder: (context, state) {
                 final extra = state.extra as Map<String, dynamic>?;
+                if (extra == null || extra['congregation'] == null) {
+                  // Manejar caso de error - redirigir a congregaciones
+                  return const CongregationsPage();
+                }
                 final congregation =
-                    extra?['congregation'] as CongregationEntity;
-
+                    extra['congregation'] as CongregationEntity;
                 return CongregationDetailsPage(
                   congregation: congregation,
                 );

@@ -144,33 +144,121 @@ class _CreateRecommendationDialogState
                             color: AppColors.darkBlue,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+
+                        // Cards seleccionables
                         Row(
                           children: [
                             Expanded(
-                              child: RadioListTile<TipoRecomendacion>(
-                                title: const Text('Anciano'),
-                                value: TipoRecomendacion.anciano,
-                                groupValue: _tipo,
-                                onChanged: (value) {
+                              child: GestureDetector(
+                                onTap: () {
                                   setState(() {
-                                    _tipo = value!;
+                                    _tipo = TipoRecomendacion.anciano;
                                   });
                                 },
-                                activeColor: AppColors.lightBlue,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: _tipo == TipoRecomendacion.anciano
+                                        ? AppColors.lightBlue.withOpacity(0.1)
+                                        : Colors.grey.shade50,
+                                    border: Border.all(
+                                      color: _tipo == TipoRecomendacion.anciano
+                                          ? AppColors.lightBlue
+                                          : Colors.grey.shade300,
+                                      width: _tipo == TipoRecomendacion.anciano
+                                          ? 2
+                                          : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.man,
+                                        size: 32,
+                                        color:
+                                            _tipo == TipoRecomendacion.anciano
+                                                ? AppColors.lightBlue
+                                                : Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Anciano',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color:
+                                              _tipo == TipoRecomendacion.anciano
+                                                  ? AppColors.lightBlue
+                                                  : Colors.grey.shade700,
+                                          fontSize: 14,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child: RadioListTile<TipoRecomendacion>(
-                                title: const Text('Siervo Ministerial'),
-                                value: TipoRecomendacion.siervoMinisterial,
-                                groupValue: _tipo,
-                                onChanged: (value) {
+                              child: GestureDetector(
+                                onTap: () {
                                   setState(() {
-                                    _tipo = value!;
+                                    _tipo = TipoRecomendacion.siervoMinisterial;
                                   });
                                 },
-                                activeColor: AppColors.lightBlue,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: _tipo ==
+                                            TipoRecomendacion.siervoMinisterial
+                                        ? AppColors.mediumBlue.withOpacity(0.1)
+                                        : Colors.grey.shade50,
+                                    border: Border.all(
+                                      color: _tipo ==
+                                              TipoRecomendacion
+                                                  .siervoMinisterial
+                                          ? AppColors.mediumBlue
+                                          : Colors.grey.shade300,
+                                      width: _tipo ==
+                                              TipoRecomendacion
+                                                  .siervoMinisterial
+                                          ? 2
+                                          : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.boy,
+                                        size: 32,
+                                        color: _tipo ==
+                                                TipoRecomendacion
+                                                    .siervoMinisterial
+                                            ? AppColors.mediumBlue
+                                            : Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Siervo Ministerial',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: _tipo ==
+                                                  TipoRecomendacion
+                                                      .siervoMinisterial
+                                              ? AppColors.mediumBlue
+                                              : Colors.grey.shade700,
+                                          fontSize: 14,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -194,7 +282,7 @@ class _CreateRecommendationDialogState
                           decoration: InputDecoration(
                             labelText: 'Edad *',
                             hintText: 'Ej: 35',
-                            prefixIcon: const Icon(Icons.cake_rounded),
+                            prefixIcon: const Icon(Icons.calendar_month),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

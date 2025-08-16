@@ -47,7 +47,9 @@ class _CongregationDetailsPageState
   void initState() {
     super.initState();
     _initializeControllers();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDataSequentially();
+    });
   }
 
   void _initializeControllers() {
@@ -93,22 +95,95 @@ class _CongregationDetailsPageState
     }
   }
 
-  void _loadData() {
-    // Limpiar el estado anterior y cargar los datos de esta congregación
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Primero limpiar el estado
+  // void _loadData() {
+  //   // Limpiar el estado anterior y cargar los datos de esta congregación
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     // Primero limpiar el estado
+  //     ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+  //     ref.read(recommendationsNotifierProvider.notifier).clearState();
+
+  //     // Luego cargar los datos específicos de esta congregación
+  //     ref
+  //         .read(congregationDetailsNotifierProvider.notifier)
+  //         .loadDetails(widget.congregation.id);
+
+  //     ref
+  //         .read(recommendationsNotifierProvider.notifier)
+  //         .loadRecommendations(widget.congregation.id);
+  //   });
+  // }
+
+  Future<void> _loadDataSequentially() async {
+    if (!mounted) return;
+
+    try {
+      print(
+          'Starting sequential data load for congregation: ${widget.congregation.id}');
+
+      // 1. Primero limpiar todos los estados
+      print('🧹 Clearing states...');
       ref.read(congregationDetailsNotifierProvider.notifier).clearState();
       ref.read(recommendationsNotifierProvider.notifier).clearState();
 
-      // Luego cargar los datos específicos de esta congregación
-      ref
+      // 2. Esperar un frame para que se limpien los estados
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (!mounted) {
+        print('❌ Widget unmounted during state clearing');
+        return;
+      }
+
+      // 3. Cargar detalles de congregación primero
+      print('Loading congregation details...');
+      await ref
           .read(congregationDetailsNotifierProvider.notifier)
           .loadDetails(widget.congregation.id);
 
-      ref
+      if (!mounted) {
+        print('❌ Widget unmounted during details loading');
+        return;
+      }
+
+      final detailsState = ref.read(congregationDetailsNotifierProvider);
+      print(
+          '📊 Details state: loading=${detailsState.isLoading}, hasDetails=${detailsState.details != null}, congregationId=${detailsState.currentCongregationId}');
+
+      // 4. Esperar un poco más para que se estabilice el estado
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      if (!mounted) {
+        print('❌ Widget unmounted before recommendations loading');
+        return;
+      }
+
+      // 5. Luego cargar recomendaciones
+      print('Loading recommendations...');
+      await ref
           .read(recommendationsNotifierProvider.notifier)
           .loadRecommendations(widget.congregation.id);
-    });
+
+      print('Sequential data load completed');
+    } catch (e) {
+      print('Error loading congregation data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cargando datos: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // Eliminar el método _loadData() anterior y usar este:
+  Future<void> _reloadData() async {
+    await _loadDataSequentially();
   }
 
   @override
@@ -127,6 +202,12 @@ class _CongregationDetailsPageState
 
   @override
   void dispose() {
+    try {
+      ref.read(congregationDetailsNotifierProvider.notifier).clearState();
+      ref.read(recommendationsNotifierProvider.notifier).clearState();
+    } catch (e) {
+      // Silently handle if ref is already disposed
+    }
     _scrollController.dispose();
     _aspectosPositivosController.dispose();
     _aspectosAMejorarController.dispose();
@@ -148,7 +229,7 @@ class _CongregationDetailsPageState
     // Listener para errores
     ref.listen<CongregationDetailsState>(congregationDetailsNotifierProvider,
         (previous, next) {
-      if (next.error != null) {
+      if (next.error != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
@@ -171,7 +252,9 @@ class _CongregationDetailsPageState
         !_isDataLoaded &&
         detailsState.currentCongregationId == widget.congregation.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _populateControllers(detailsState.details!);
+        if (mounted) {
+          _populateControllers(detailsState.details!);
+        }
       });
     }
 
@@ -194,18 +277,7 @@ class _CongregationDetailsPageState
         actions: [
           IconButton(
             icon: const Icon(Icons.home_rounded),
-            onPressed: () {
-              // Limpiar el estado antes de ir al home
-              try {
-                ref
-                    .read(congregationDetailsNotifierProvider.notifier)
-                    .clearState();
-                ref.read(recommendationsNotifierProvider.notifier).clearState();
-              } catch (e) {
-                // Silently handle if ref is already disposed
-              }
-              context.go(RouteNames.home);
-            },
+            onPressed: _handleHomePressed,
             tooltip: 'Ir al inicio',
           ),
         ],
@@ -221,353 +293,426 @@ class _CongregationDetailsPageState
             ],
           ),
         ),
-        child: detailsState.isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : Form(
-                key: _formKey,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      _buildHeader(),
-                      const SizedBox(height: 24),
-
-                      // Reuniones
-                      _buildSection(
-                        title: 'Reunión Entre Semana',
-                        subtitle: 'Asistencia promedio semanal',
-                        icon: Icons.calendar_view_week_rounded,
-                        sectionKey: 'reunionEntreSemana',
-                        color: AppColors.mediumBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Reunión Fin De Semana',
-                        subtitle: 'Asistencia promedio de fin de semana',
-                        icon: Icons.weekend_rounded,
-                        sectionKey: 'reunionFinDeSemana',
-                        color: AppColors.lightBlue,
-                      ),
-
-                      // Cursos y Publicadores
-                      _buildSection(
-                        title: 'Cursos Bíblicos',
-                        subtitle: 'Número de cursos bíblicos activos',
-                        icon: Icons.menu_book_rounded,
-                        sectionKey: 'cursosBiblicos',
-                        color: AppColors.darkBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Publicadores que Dirigen Cursos Bíblicos',
-                        subtitle: 'Publicadores activos en la enseñanza',
-                        icon: Icons.school_rounded,
-                        sectionKey: 'publicadoresDirigenCursos',
-                        color: AppColors.mediumBlue,
-                      ),
-
-                      // Precursores
-                      _buildSection(
-                        title: 'Precursores Especiales',
-                        subtitle: 'Precursores de tiempo completo',
-                        icon: Icons.star_rounded,
-                        sectionKey: 'precursoresEspeciales',
-                        color: AppColors.lightBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Precursores Regulares',
-                        subtitle: 'Precursores regulares activos',
-                        icon: Icons.stars_rounded,
-                        sectionKey: 'precursoresRegulares',
-                        color: AppColors.darkBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Precursores Auxiliares',
-                        subtitle: 'Precursores auxiliares del mes',
-                        icon: Icons.volunteer_activism_rounded,
-                        sectionKey: 'precursoresAuxiliares',
-                        color: AppColors.mediumBlue,
-                      ),
-
-                      // Publicadores
-                      _buildSection(
-                        title: 'Total Publicadores',
-                        subtitle: 'Todos los publicadores activos',
-                        icon: Icons.groups_rounded,
-                        sectionKey: 'totalPublicadores',
-                        color: AppColors.lightBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Publicadores Nuevos',
-                        subtitle: 'Nuevos publicadores este período',
-                        icon: Icons.person_add_rounded,
-                        sectionKey: 'publicadoresNuevos',
-                        color: AppColors.darkBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Publicadores Irregulares',
-                        subtitle: 'Publicadores con actividad irregular',
-                        icon: Icons.warning_amber_rounded,
-                        sectionKey: 'publicadoresIrregulares',
-                        color: Colors.orange,
-                      ),
-
-                      _buildSection(
-                        title: 'Publicadores Inactivos',
-                        subtitle: 'Publicadores sin actividad reportada',
-                        icon: Icons.person_off_rounded,
-                        sectionKey: 'publicadoresInactivos',
-                        color: Colors.red,
-                      ),
-
-                      _buildSection(
-                        title: 'Publicadores Reactivados',
-                        subtitle: 'Publicadores que retomaron la actividad',
-                        icon: Icons.refresh_rounded,
-                        sectionKey: 'publicadoresReactivados',
-                        color: Colors.green,
-                      ),
-
-                      _buildSection(
-                        title: 'Readmitidos',
-                        subtitle: 'Personas readmitidas en la congregación',
-                        icon: Icons.how_to_reg_rounded,
-                        sectionKey: 'readmitidos',
-                        color: AppColors.mediumBlue,
-                      ),
-
-                      // Nombramientos
-                      _buildSection(
-                        title: 'Ancianos',
-                        subtitle: 'Ancianos activos en la congregación',
-                        icon: Icons.admin_panel_settings_rounded,
-                        sectionKey: 'ancianos',
-                        color: AppColors.lightBlue,
-                      ),
-
-                      _buildSection(
-                        title: 'Siervos Ministeriales',
-                        subtitle: 'Siervos ministeriales activos',
-                        icon: Icons.support_agent_rounded,
-                        sectionKey: 'siervosMinisteriales',
-                        color: AppColors.darkBlue,
-                      ),
-
-                      // Text Areas
-                      const SizedBox(height: 32),
-                      _buildTextAreaSection(),
-
-                      //Recomendaciones Section
-                      const SizedBox(height: 32),
-                      _buildRecommendationsSection(),
-
-                      const SizedBox(height: 100), // Espacio para el FAB
-                    ],
-                  ),
-                ),
-              ),
+        child: _buildBody(detailsState),
       ),
-      floatingActionButton: _hasChanges
-          ? FloatingActionButton.extended(
-              onPressed: detailsState.isSaving ? null : _saveData,
-              backgroundColor: AppColors.lightBlue,
-              foregroundColor: Colors.white,
-              icon: detailsState.isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.save_rounded),
-              label: Text(
-                  detailsState.isSaving ? 'Guardando...' : 'Guardar Cambios'),
-            ).animate().scale(duration: 300.ms)
-          : null,
+      floatingActionButton: _buildFloatingActionButton(detailsState),
     );
   }
 
-  Widget _buildRecommendationsSection() {
-    try {
-      final recommendationsState = ref.watch(recommendationsNotifierProvider);
-      final theme = Theme.of(context);
+  Widget? _buildFloatingActionButton(CongregationDetailsState detailsState) {
+    if (!_hasChanges) return null;
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                  child: Text(
+    return FloatingActionButton.extended(
+      onPressed: detailsState.isSaving ? null : _saveData,
+      backgroundColor: AppColors.lightBlue,
+      foregroundColor: Colors.white,
+      icon: detailsState.isSaving
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Icon(Icons.save_rounded),
+      label: Text(detailsState.isSaving ? 'Guardando...' : 'Guardar Cambios'),
+    ).animate().scale(duration: 300.ms);
+  }
+
+  Widget _buildBody(CongregationDetailsState detailsState) {
+    // Mostrar loading mientras se cargan los datos iniciales
+    if (detailsState.isLoading ||
+        (detailsState.currentCongregationId != widget.congregation.id &&
+            detailsState.details == null)) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Cargando detalles de la congregación...'),
+          ],
+        ),
+      );
+    }
+
+    // Verificar que tenemos datos válidos antes de mostrar el formulario
+    if (detailsState.details == null ||
+        detailsState.currentCongregationId != widget.congregation.id) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.orange),
+            SizedBox(height: 16),
+            Text('Error cargando los datos de la congregación'),
+          ],
+        ),
+      );
+    }
+
+    // Solo renderizar el formulario cuando los datos están listos
+    return SafeArea(
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                _buildHeader(),
+                const SizedBox(height: 24),
+
+                // Reuniones
+                _buildSection(
+                  title: 'Reunión Entre Semana',
+                  subtitle: 'Asistencia promedio semanal',
+                  icon: Icons.calendar_view_week_rounded,
+                  sectionKey: 'reunionEntreSemana',
+                  color: AppColors.mediumBlue,
+                ),
+
+                _buildSection(
+                  title: 'Reunión Fin De Semana',
+                  subtitle: 'Asistencia promedio de fin de semana',
+                  icon: Icons.weekend_rounded,
+                  sectionKey: 'reunionFinDeSemana',
+                  color: AppColors.lightBlue,
+                ),
+
+                // Cursos y Publicadores
+                _buildSection(
+                  title: 'Cursos Bíblicos',
+                  subtitle: 'Número de cursos bíblicos activos',
+                  icon: Icons.menu_book_rounded,
+                  sectionKey: 'cursosBiblicos',
+                  color: AppColors.darkBlue,
+                ),
+
+                _buildSection(
+                  title: 'Publicadores que Dirigen Cursos Bíblicos',
+                  subtitle: 'Publicadores activos en la enseñanza',
+                  icon: Icons.school_rounded,
+                  sectionKey: 'publicadoresDirigenCursos',
+                  color: AppColors.mediumBlue,
+                ),
+
+                // Precursores
+                _buildSection(
+                  title: 'Precursores Especiales',
+                  subtitle: 'Precursores de tiempo completo',
+                  icon: Icons.star_rounded,
+                  sectionKey: 'precursoresEspeciales',
+                  color: AppColors.lightBlue,
+                ),
+
+                _buildSection(
+                  title: 'Precursores Regulares',
+                  subtitle: 'Precursores regulares activos',
+                  icon: Icons.stars_rounded,
+                  sectionKey: 'precursoresRegulares',
+                  color: AppColors.darkBlue,
+                ),
+
+                _buildSection(
+                  title: 'Precursores Auxiliares',
+                  subtitle: 'Precursores auxiliares del mes',
+                  icon: Icons.volunteer_activism_rounded,
+                  sectionKey: 'precursoresAuxiliares',
+                  color: AppColors.mediumBlue,
+                ),
+
+                // Publicadores
+                _buildSection(
+                  title: 'Total Publicadores',
+                  subtitle: 'Todos los publicadores activos',
+                  icon: Icons.groups_rounded,
+                  sectionKey: 'totalPublicadores',
+                  color: AppColors.lightBlue,
+                ),
+
+                _buildSection(
+                  title: 'Publicadores Nuevos',
+                  subtitle: 'Nuevos publicadores este período',
+                  icon: Icons.person_add_rounded,
+                  sectionKey: 'publicadoresNuevos',
+                  color: AppColors.darkBlue,
+                ),
+
+                _buildSection(
+                  title: 'Publicadores Irregulares',
+                  subtitle: 'Publicadores con actividad irregular',
+                  icon: Icons.warning_amber_rounded,
+                  sectionKey: 'publicadoresIrregulares',
+                  color: Colors.orange,
+                ),
+
+                _buildSection(
+                  title: 'Publicadores Inactivos',
+                  subtitle: 'Publicadores sin actividad reportada',
+                  icon: Icons.person_off_rounded,
+                  sectionKey: 'publicadoresInactivos',
+                  color: Colors.red,
+                ),
+
+                _buildSection(
+                  title: 'Publicadores Reactivados',
+                  subtitle: 'Publicadores que retomaron la actividad',
+                  icon: Icons.refresh_rounded,
+                  sectionKey: 'publicadoresReactivados',
+                  color: Colors.green,
+                ),
+
+                _buildSection(
+                  title: 'Readmitidos',
+                  subtitle: 'Personas readmitidas en la congregación',
+                  icon: Icons.how_to_reg_rounded,
+                  sectionKey: 'readmitidos',
+                  color: AppColors.mediumBlue,
+                ),
+
+                // Nombramientos
+                _buildSection(
+                  title: 'Ancianos',
+                  subtitle: 'Ancianos activos en la congregación',
+                  icon: Icons.admin_panel_settings_rounded,
+                  sectionKey: 'ancianos',
+                  color: AppColors.lightBlue,
+                ),
+
+                _buildSection(
+                  title: 'Siervos Ministeriales',
+                  subtitle: 'Siervos ministeriales activos',
+                  icon: Icons.support_agent_rounded,
+                  sectionKey: 'siervosMinisteriales',
+                  color: AppColors.darkBlue,
+                ),
+
+                // Text Areas
+                const SizedBox(height: 32),
+                _buildTextAreaSection(),
+
+                // Recomendaciones Section
+                const SizedBox(height: 32),
+                _buildRecommendationsSection(),
+
+                const SizedBox(height: 100), // Espacio para el FAB
+              ],
+            )),
+      ),
+    );
+  }
+
+// También necesitas actualizar el método _buildRecommendationsSection
+  Widget _buildRecommendationsSection() {
+    final recommendationsState = ref.watch(recommendationsNotifierProvider);
+    final theme = Theme.of(context);
+
+    // Listener para errores de recomendaciones en el build principal
+    ref.listen<RecommendationsState>(recommendationsNotifierProvider,
+        (previous, next) {
+      if (next.error != null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(next.error!),
+                backgroundColor: theme.colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+            ref.read(recommendationsNotifierProvider.notifier).clearError();
+          }
+        });
+      }
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
                 'Recomendaciones',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.darkBlue,
                 ),
-              )),
-              ElevatedButton.icon(
-                onPressed: () => _showCreateRecommendationDialog(),
+              ),
+            ),
+            // Envolver el botón en un SizedBox para darle un ancho fijo
+            SizedBox(
+              width: 120, // Ancho fijo para evitar constraints infinitos
+              child: ElevatedButton.icon(
+                onPressed: recommendationsState.isLoading
+                    ? null
+                    : () => _showCreateRecommendationDialog(),
                 icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Agregar'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.lightBlue,
                   foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              )
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Contenido de recomendaciones
+        _buildRecommendationsContent(recommendationsState, theme),
+      ],
+    ).animate().fadeIn(delay: Duration(milliseconds: 600), duration: 600.ms);
+  }
+
+  Widget _buildRecommendationsContent(
+      RecommendationsState recommendationsState, ThemeData theme) {
+    // Loading state
+    if (recommendationsState.isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Cargando recomendaciones...'),
             ],
           ),
-          const SizedBox(height: 16),
-          if (recommendationsState.isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          else if (recommendationsState.recommendations.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: AppColors.paleBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.lightBlue.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.person_add_rounded,
-                    size: 48,
-                    color: AppColors.lightBlue.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No hay recomendaciones registradas',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: AppColors.darkBlue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Agrega la primera recomendación para esta congregación',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.lightBlue,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => _showCreateRecommendationDialog(),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Crear Primera Recomendación'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.lightBlue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: recommendationsState.recommendations.length,
-              itemBuilder: (context, index) {
-                final recommendation =
-                    recommendationsState.recommendations[index];
-                return RecommendationCard(
-                  recommendation: recommendation,
-                  onEdit: () => _showEditRecommendationDialog(recommendation),
-                  onDelete: () =>
-                      _showDeleteRecommendationDialog(recommendation),
-                )
-                    .animate()
-                    .fadeIn(
-                      delay: Duration(milliseconds: 100 * index),
-                      duration: 400.ms,
-                    )
-                    .slideX();
-              },
-            ),
-          Consumer(builder: (context, ref, child) {
-            ref.listen<RecommendationsState>(recommendationsNotifierProvider,
-                (previous, next) {
-              if (next.error != null) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(next.error!),
-                  backgroundColor: theme.colorScheme.error,
-                  behavior: SnackBarBehavior.floating,
-                  margin: const EdgeInsets.all(16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ));
-                ref.read(recommendationsNotifierProvider.notifier).clearError();
-              }
-            });
-            return const SizedBox.shrink();
-          })
-        ],
-      ).animate().fadeIn(delay: Duration(milliseconds: 600), duration: 600.ms);
-    } catch (e) {
-      print('Error in recommendations section: $e');
+        ),
+      );
+    }
+
+    // Error state
+    if (recommendationsState.error != null) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
+          color: Colors.red.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.red.withOpacity(0.3),
             width: 1,
           ),
         ),
         child: Column(
           children: [
             Icon(
-              Icons.warning_rounded,
+              Icons.error_outline,
               size: 48,
-              color: Colors.orange.withOpacity(0.5),
+              color: Colors.red.withOpacity(0.7),
             ),
             const SizedBox(height: 16),
             Text(
-              'Recomendaciones no disponibles',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.w600,
-                  ),
+              'Error cargando recomendaciones',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Hay un problema con el sistema de recomendaciones',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              recommendationsState.error!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.red[700],
+              ),
               textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
+
+    // Empty state
+    if (recommendationsState.recommendations.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppColors.paleBlue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.lightBlue.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.person_add_rounded,
+              size: 48,
+              color: AppColors.lightBlue.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No hay recomendaciones registradas',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: AppColors.darkBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Agrega la primera recomendación para esta congregación',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.lightBlue,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => _showCreateRecommendationDialog(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Crear Primera Recomendación'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.lightBlue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Recommendations list
+    return Column(
+      children: [
+        for (int index = 0;
+            index < recommendationsState.recommendations.length;
+            index++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: RecommendationCard(
+              recommendation: recommendationsState.recommendations[index],
+              onEdit: () => _showEditRecommendationDialog(
+                  recommendationsState.recommendations[index]),
+              onDelete: () => _showDeleteRecommendationDialog(
+                  recommendationsState.recommendations[index]),
+            )
+                .animate()
+                .fadeIn(
+                  delay: Duration(milliseconds: 100 * index),
+                  duration: 400.ms,
+                )
+                .slideX(),
+          ),
+      ],
+    );
   }
 
   void _showCreateRecommendationDialog() {
@@ -1154,7 +1299,7 @@ class _CongregationDetailsPageState
     }
   }
 
-  void _showUnsavedChangesDialog() {
+  void _showUnsavedChangesDialog({bool goToHome = false}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1173,7 +1318,11 @@ class _CongregationDetailsPageState
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              _goBack();
+              if (goToHome) {
+                _clearStatesAndNavigate(() => context.go(RouteNames.home));
+              } else {
+                _goBack();
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -1186,23 +1335,40 @@ class _CongregationDetailsPageState
     );
   }
 
-  void _goBack() {
-    // Limpiar el estado antes de salir
+  void _handleHomePressed() {
+    if (_hasChanges) {
+      _showUnsavedChangesDialog(goToHome: true);
+    } else {
+      _clearStatesAndNavigate(() => context.go(RouteNames.home));
+    }
+  }
+
+  void _clearStatesAndNavigate(VoidCallback navigationAction) {
     try {
       ref.read(congregationDetailsNotifierProvider.notifier).clearState();
-      try {
-        ref.read(recommendationsNotifierProvider.notifier).clearState();
-      } catch (e) {
-        print('Error clearing recommendations state in goBack: $e');
-      }
+      ref.read(recommendationsNotifierProvider.notifier).clearState();
     } catch (e) {
       // Silently handle if ref is already disposed
+      print('Error clearing states: $e');
     }
+    navigationAction();
+  }
 
-    if (context.canPop()) {
-      context.pop();
+  void _goBack() {
+    _clearStatesAndNavigate(() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(RouteNames.congregations);
+      }
+    });
+  }
+
+  void _handleBackPressed() {
+    if (_hasChanges) {
+      _showUnsavedChangesDialog();
     } else {
-      context.go(RouteNames.congregations);
+      _goBack();
     }
   }
 }

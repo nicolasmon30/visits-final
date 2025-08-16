@@ -64,6 +64,11 @@ class RecommendationsNotifier extends StateNotifier<RecommendationsState> {
     // Si estamos cargando una congregación diferente, resetear el estado
     if (state.currentCongregationId != congregationId) {
       state = const RecommendationsState();
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    if (state.isLoading && state.currentCongregationId == congregationId) {
+      print('Already loading recommendations for this congregation');
+      return;
     }
 
     state = state.copyWith(
@@ -73,19 +78,26 @@ class RecommendationsNotifier extends StateNotifier<RecommendationsState> {
     );
 
     try {
+      print('Fetching recommendations from repository...');
       final recommendations =
           await _getRecommendationsByCongregation(congregationId);
-      state = state.copyWith(
-        isLoading: false,
-        recommendations: recommendations,
-        currentCongregationId: congregationId,
-      );
+
+      print('Found ${recommendations.length} recommendations');
+      if (state.currentCongregationId == congregationId) {
+        state = state.copyWith(
+          isLoading: false,
+          recommendations: recommendations,
+          currentCongregationId: congregationId,
+        );
+      }
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Error cargando recomendaciones',
-        currentCongregationId: congregationId,
-      );
+      if (state.currentCongregationId == congregationId) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Error cargando recomendaciones',
+          currentCongregationId: congregationId,
+        );
+      }
     }
   }
 
@@ -118,7 +130,9 @@ class RecommendationsNotifier extends StateNotifier<RecommendationsState> {
       );
 
       if (success) {
-        await loadRecommendations(congregationId); // Recargar la lista
+        if (state.currentCongregationId == congregationId) {
+          await loadRecommendations(congregationId); // Recargar la lista
+        }
         state = state.copyWith(isCreating: false);
         return true;
       } else {
@@ -144,8 +158,10 @@ class RecommendationsNotifier extends StateNotifier<RecommendationsState> {
       final success = await _updateRecommendation(recommendation);
 
       if (success) {
-        await loadRecommendations(
-            recommendation.congregationId); // Recargar la lista
+        if (state.currentCongregationId == recommendation.congregationId) {
+          await loadRecommendations(
+              recommendation.congregationId); // Recargar la lista
+        }
         state = state.copyWith(isUpdating: false);
         return true;
       } else {
@@ -171,7 +187,9 @@ class RecommendationsNotifier extends StateNotifier<RecommendationsState> {
       final success = await _deleteRecommendation(id);
 
       if (success) {
-        await loadRecommendations(congregationId); // Recargar la lista
+        if (state.currentCongregationId == congregationId) {
+          await loadRecommendations(congregationId); // Recargar la lista
+        }
         state = state.copyWith(isDeleting: false);
         return true;
       } else {

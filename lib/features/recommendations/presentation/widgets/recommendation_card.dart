@@ -139,7 +139,7 @@ class RecommendationCard extends StatelessWidget {
               Row(
                 children: [
                   _buildInfoChip(
-                    icon: Icons.cake_rounded,
+                    icon: Icons.calendar_month,
                     label: '${recommendation.edad} años',
                     color: AppColors.mediumBlue,
                   ),
@@ -302,9 +302,9 @@ class RecommendationCard extends StatelessWidget {
   IconData _getTipoIcon() {
     switch (recommendation.tipo) {
       case TipoRecomendacion.anciano:
-        return Icons.admin_panel_settings_rounded;
+        return Icons.man;
       case TipoRecomendacion.siervoMinisterial:
-        return Icons.support_agent_rounded;
+        return Icons.boy;
     }
   }
 
